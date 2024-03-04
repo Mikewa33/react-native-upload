@@ -125,8 +125,15 @@ RCT_EXPORT_METHOD(getFileInfo:(NSString *)path resolve:(RCTPromiseResolveBlock)r
  Utility method to copy a PHAsset file into a local temp file, which can then be uploaded.
  */
 - (void)copyAssetToFile: (NSString *)assetUrl completionHandler: (void(^)(NSString *__nullable tempFileUrl, NSError *__nullable error))completionHandler {
+    PHAsset *asset;
+     if ([assetUrl hasPrefix:@"assets-library"]) {
     NSURL *url = [NSURL URLWithString:assetUrl];
-    PHAsset *asset = [PHAsset fetchAssetsWithALAssetURLs:@[url] options:nil].lastObject;
+    
+    asset = [PHAsset fetchAssetsWithALAssetURLs:@[url] options:nil].lastObject;
+     }
+    else   if([assetUrl containsString:@"-"]){
+        asset = [[PHAsset fetchAssetsWithLocalIdentifiers:@[assetUrl] options:nil] firstObject];
+    }
     if (!asset) {
         NSMutableDictionary* details = [NSMutableDictionary dictionary];
         [details setValue:@"Asset could not be fetched.  Are you missing permissions?" forKey:NSLocalizedDescriptionKey];
@@ -137,10 +144,8 @@ RCT_EXPORT_METHOD(getFileInfo:(NSString *)path resolve:(RCTPromiseResolveBlock)r
     NSString *pathToWrite = [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
     NSURL *pathUrl = [NSURL fileURLWithPath:pathToWrite];
     NSString *fileURI = pathUrl.absoluteString;
-
     PHAssetResourceRequestOptions *options = [PHAssetResourceRequestOptions new];
     options.networkAccessAllowed = YES;
-
     [[PHAssetResourceManager defaultManager] writeDataForAssetResource:assetResource toFile:pathUrl options:options completionHandler:^(NSError * _Nullable e) {
         if (e == nil) {
             completionHandler(fileURI, nil);
@@ -208,6 +213,20 @@ RCT_EXPORT_METHOD(startUpload:(NSDictionary *)options resolve:(RCTPromiseResolve
             }];
             dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
         }
+        else  if([fileURI containsString:@"-"] && ![fileURI hasPrefix:@"file:"]){
+                   dispatch_group_t group = dispatch_group_create();
+                   dispatch_group_enter(group);
+                   [self copyAssetToFile:fileURI completionHandler:^(NSString * _Nullable tempFileUrl, NSError * _Nullable error) {
+                       if (error) {
+                           dispatch_group_leave(group);
+                           reject(@"RN Uploader", @"Asset could not be copied to temp file.", nil);
+                           return;
+                       }
+                       fileURI = tempFileUrl;
+                       dispatch_group_leave(group);
+                   }];
+                   dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+               }
 
         NSString *uploadId = customUploadId ? customUploadId : [[NSUUID UUID] UUIDString];
         NSURLSessionUploadTask *uploadTask;
