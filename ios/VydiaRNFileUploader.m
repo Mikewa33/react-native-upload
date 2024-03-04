@@ -76,17 +76,12 @@ RCT_EXPORT_METHOD(getFileInfo:(NSString *)path resolve:(RCTPromiseResolveBlock)r
     @try {
         // Escape non latin characters in filename
         NSString *escapedPath = [path stringByAddingPercentEncodingWithAllowedCharacters: NSCharacterSet.URLQueryAllowedCharacterSet];
-       NSLog( @"Here is a test message1: '%@'", escapedPath );
+       
         NSURL *fileUri = [NSURL URLWithString:escapedPath];
-        NSLog( @"Here is a test message2: '%@'", fileUri );
         NSString *pathWithoutProtocol = [fileUri path];
-        NSLog( @"Here is a test message3: '%@'", pathWithoutProtocol );
         NSString *name = [fileUri lastPathComponent];
-        NSLog( @"Here is a test message4: '%@'", name );
         NSString *extension = [name pathExtension];
-        NSLog( @"Here is a test message5: '%@'", extension );
         bool exists = [[NSFileManager defaultManager] fileExistsAtPath:pathWithoutProtocol];
-        NSLog( @"Here is a test message6: '%@'", exists );
         NSMutableDictionary *params = [NSMutableDictionary dictionaryWithObjectsAndKeys: name, @"name", nil];
         [params setObject:extension forKey:@"extension"];
         [params setObject:[NSNumber numberWithBool:exists] forKey:@"exists"];
